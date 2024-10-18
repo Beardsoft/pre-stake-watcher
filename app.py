@@ -19,10 +19,22 @@ url = f"https://v2.nimiqwatch.com/api/v2/registration/{address}"
 total_stake_gauge = Gauge('total_stake', 'Total stake of all stakers')
 staker_stake_gauge = Gauge('staker_stake', 'Stake amount for each staker', ['staker_address'])
 total_stakers_gauge = Gauge('total_stakers', 'Total number of stakers')
+current_nimiq_price_gauge = Gauge('current_nimiq_price', 'Current Nimiq price in USD')
 
 def log(message):
     """Helper function to log messages with a timestamp."""
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+
+
+def fetch_nimiq_price():
+    """Fetch the current Nimiq price from CoinGecko API."""
+    try:
+        response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=nimiq-2&vs_currencies=usd")
+        response.raise_for_status()
+        return response.json().get("nimiq-2", {}).get("usd")
+    except requests.exceptions.RequestException as e:
+        log(f"Error fetching Nimiq price: {e}")
+        return None
 
 def fetch_registration_data(api_url):
     """Fetch registration data from the given API URL."""
@@ -90,6 +102,13 @@ def main():
         if data:
             # Process the data and update Prometheus metrics
             process_data(data)
+        
+        # Fetch the current Nimiq price
+        price = fetch_nimiq_price()
+        if price:
+            # Update the current Nimiq price gauge
+            current_nimiq_price_gauge.set(price)
+            log(f"Current Nimiq price: ${price}")
         
         # Log when the next scrape will occur
         log(f"Next scrape in {interval} seconds")
